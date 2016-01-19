@@ -1,0 +1,7 @@
+;; -*- mode: Scheme; -*-
+((category hell)
+ (license "BSD")
+ (author "Jörg F. Wittenberger")
+ (synopsis "A mailbox constrained by capacity.")
+ (doc-from-wiki)
+ (files "pigeon-hole.meta" "pigeon-hole.setup" "pigeon-hole.scm"))
