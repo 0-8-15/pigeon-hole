@@ -33,9 +33,16 @@ Return number of waiters on {{PIGEON-HOLE}}.
 Immediately send {{VALUE}} to {{PIGEON-HOLE}}.  Does *not* respect
 capacity limits!
 
-    (: send/blocking! (:dequeue: * -> boolean))
+    (: send/blocking! (:dequeue: * [BLOCK] -> boolean))
 
 Send {{VALUE}} to {{PIGEON-HOLE}}, blocks if capacity is reached.
+
+{{BLOCK}} is either a boolean or a procedure taking the queue as
+argument and returning a boolean.  If it is a procedure it is call in
+tail position when the call would block.  If {{#f}} does not block but
+return #f.  Default if {{#t}}: block for capacity.
+
+Return: {{#t}} if value was send.
 
     (: receive! (:dequeue: -> *))
 

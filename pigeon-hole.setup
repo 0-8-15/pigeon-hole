@@ -9,4 +9,4 @@
 (install-extension
  'pigeon-hole
  '("pigeon-hole.types" "pigeon-hole.so" "pigeon-hole.import.so")
- '((version "0.1")))
+ '((version "0.1.1")))

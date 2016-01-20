@@ -60,7 +60,8 @@
  (define count dequeue-count)
  (define (name queue) (condition-variable-name (dequeue-waiting queue)))
  (: size (:dequeue: -> fixnum))
- (define (size queue) (caar (dequeue-queue queue)))
+ (define-inline (%size queue) (caar (dequeue-queue queue)))
+ (define (size queue) (%size queue))
 
  (define unlocked (make-mutex 'unlocked))
  
@@ -75,22 +76,34 @@
 
  (: send! (:dequeue: * -> boolean))
  (define (send! queue job)
-   (let ((job (cons job '())))
-     (set-cdr! (cdr (dequeue-queue queue)) job)
-     (set-cdr! (dequeue-queue queue) job))
+   (let ((job (cons job '()))
+	 (q (dequeue-queue queue)))
+     (set-cdr! (cdr q) job)
+     (set-cdr! q job)
+     (let ((p (##sys#slot q 0)#;(car q)))
+       (##sys#setislot p 0 (fx+ (##sys#slot p 0) 1))
+       #;(set-car! p (add1 (car p)))
+       ))
    (condition-variable-signal! (dequeue-waiting queue))
    #t)
 
 ;; `send/blocking!` needs roughly 3x as much runtime as `send!` in
 ;; contention case and incures roughly 20% overhead otherwise
 
- (: send/blocking! (:dequeue: * -> boolean))
- (define (send/blocking! queue job)
+ (: send/blocking! (:dequeue: * &rest (or boolean (procedure (:dequeue:) boolean)) -> boolean))
+ (define (send/blocking! queue job #!optional (block #t))
+   #;(assert (or (boolean? block) (procedure? block)))
    (let loop ()
-     (if (> (count queue) 0)
-	 (begin (send! queue job) (mutex-unlock! (dequeue-block queue)))
-	 (begin (mutex-lock! (dequeue-block queue)) (loop))))
-   #t)
+     (if (fx> (count queue) (%size queue))
+	 (begin
+	   (send! queue job)
+	   (let ((mux (dequeue-block queue)))
+	     (if (thread? (mutex-state mux)) (mutex-unlock! mux)))
+	   #t)
+	 (cond
+	  ((eq? block #t) (mutex-lock! (dequeue-block queue)) (loop))
+	  ((not block) #f)
+	  ((procedure? block) (block queue))))))
 
  (: receive! (:dequeue: -> *))
  (define (receive! queue)
@@ -100,8 +113,12 @@
 	   (await-message! queue)
 	   (loop))
 	 (let* ((queue (dequeue-queue queue))
-		(len (caar queue)))
-	   (set-car! queue (cdar queue))
-	   (let ((x (caar queue))) (set-car! (car queue) (sub1 len)) x)))))
+		(p0 (##sys#slot queue 0) #;(car queue))
+		(p (##sys#slot p0 1) #;(cdr p0))
+		(len (##sys#slot p0 0) #;(car p0)))
+	   (set-car! queue p)
+	   (let ((x (##sys#slot p 0) #;(car p)))
+	     (##sys#setislot p 0 (fx- len 1)) #;(set-car! p (fx- len 1))
+	     x)))))
 
  )
