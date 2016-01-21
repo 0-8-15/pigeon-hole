@@ -97,3 +97,35 @@
 
 (import test)
 (test-run)
+
+;; Testing threadpool
+(module
+ test2
+ ()
+ (import scheme chicken)
+ 
+ (import (prefix pigeonry threadpool-))
+
+ (import srfi-18)
+
+ (define poo-type
+   (threadpool-make-type
+    (lambda (root ex)
+      (mutex-specific-set! root ex)
+      (mutex-unlock! root))
+    (lambda (root)
+      (mutex-unlock! root)
+      )))
+
+ (define pile (threadpool-make 'pile 1 poo-type))
+
+ (assert
+  (equal?
+   (let ((mux (make-mutex)))
+     (mutex-lock! mux #f #f)
+     (threadpool-order! pile mux (lambda (mux) (mutex-specific-set! mux 1)) '())
+     (mutex-lock! mux #f #f)
+     (mutex-specific mux))
+   1))
+
+ )

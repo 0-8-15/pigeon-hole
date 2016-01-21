@@ -6,6 +6,12 @@
 
 * Flow control.  `send/blocking!` blocks if capacity is exceeded.
 
+A second module `pigeonry` - currently unstable in API and
+undocumented - provides a threadpool.  This is only slightly faster
+than creating a fresh thread, catching exceptions and run job it does
+while still obeying the capacity limit.
+This module **NYD** (not yet documented) at all.
+
 # API
 
     (: isa? (* -> boolean : :dequeue:))
