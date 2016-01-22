@@ -14,8 +14,27 @@
  )
 
 (module
- pigeon-hole
- (make isa? empty? await-message! send! send/blocking! receive! count size name)
+ pigeonry-intern
+ (;; module pigeon-hole
+  isa?
+  make empty? await-message! send! send/blocking! receive! count size name
+  ;; module pigeonry
+  pigeonry?
+  threadpool-name
+  ;; begin debug only
+  threadpool-max threadpool-max-set!
+  threadpool-threads threadpool-threads-set!
+  threadpool-queue
+  threadpool-start!
+  ;; end debug only
+  make-requesttype
+  make-type
+  threadpool-make
+  order!
+  ;;
+  order/anyway!
+  order/blocking!
+  )
  (import scheme chicken srfi-18)
  (import (only extras format))
 
@@ -94,14 +113,14 @@
  (define (send/blocking! queue job #!optional (block #t))
    #;(assert (or (boolean? block) (procedure? block)))
    (let loop ()
-     (if (fx> (count queue) (%size queue))
+     (if (fx> (dequeue-count queue) (%size queue))
 	 (begin
 	   (send! queue job)
 	   (let ((mux (dequeue-block queue)))
-	     (if (thread? (mutex-state mux)) (mutex-unlock! mux)))
+	     (if (eq? (mutex-state mux) 'not-owned) (mutex-unlock! mux)))
 	   #t)
 	 (cond
-	  ((eq? block #t) (mutex-lock! (dequeue-block queue)) (loop))
+	  ((eq? block #t) (mutex-lock! (dequeue-block queue) #f #f) (loop))
 	  ((not block) #f)
 	  ((procedure? block) (block queue))))))
 
@@ -121,6 +140,35 @@
 	     (##sys#setislot p 0 (fx- len 1)) #;(set-car! p (fx- len 1))
 	     x)))))
 
+ (include "threadpool.scm")
+)
+ 
+(module
+ pigeon-hole
+ (make isa? empty? await-message! send! send/blocking! receive! count size name)
+ (import pigeonry-intern)
  )
 
-(include "threadpool.scm")
+(module
+ pigeonry
+ (pigeonry?
+  name
+  ;; begin debug only
+  threadpool-max threadpool-max-set!
+  threadpool-threads threadpool-threads-set!
+  threadpool-queue
+  threadpool-start!
+  ;; end debug only
+  make-requesttype
+  make-type
+  make
+  order!
+  ;;
+  order/anyway!
+  order/blocking!
+  )
+ (import scheme (except pigeonry-intern name make))
+ 
+ (define name threadpool-name)
+ (define make threadpool-make)
+ )
