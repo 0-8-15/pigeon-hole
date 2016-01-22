@@ -38,13 +38,15 @@
  (define-record threadpool-request root proc args)
 
  (cond-expand
-  (chicken-never
+  (chicken ;;-never
+   (define-inline (%threadpool-queue x) (##sys#slot x 4))
    (define-inline (%threadpool-success x) (##sys#slot x 6))
    (define-inline (%threadpool-request-root x) (##sys#slot x 1))
    (define-inline (%threadpool-request-proc x) (##sys#slot x 2))
    (define-inline (%threadpool-request-args x) (##sys#slot x 3))
    )
   (else
+   (define-inline (%threadpool-queue pool) (threadpool-queue pool))
    (define-inline (%threadpool-success pool) (threadpool-success pool))
    (define-inline (%threadpool-request-root x) (threadpool-request-root x))
    (define-inline (%threadpool-request-proc x) (threadpool-request-proc x))
@@ -74,6 +76,7 @@
 
      (define (pool-thread-loop)
        (define pool (thread-specific (current-thread)))
+       (define success (%threadpool-success pool))
        (if (number? (threadpool-max pool))
 	   (threadpool-max-set! pool (sub1 (threadpool-max pool))))
        (threadpool-threads-set! pool (cons (current-thread) (threadpool-threads pool)))
@@ -93,23 +96,23 @@
 		      (print-error-message exn (current-error-port) "Thread Pool")
 		      (format (current-error-port) "thread pool ~s\n" (threadpool-name pool))
 		      (print-call-chain (current-error-port) 0 (current-thread)))))
-	    (let ((queue (threadpool-queue pool)))
+	    (let ((queue (%threadpool-queue pool)))
 	      (set! entry (threadpool-receive-message! queue))
-	      (or (threadpool-queue-empty? queue)
-		  ;; This looks risky now: capacity handling has changed underneath.
-		  (> (threadpool-queue-count queue) 0)
+	      (or (> (threadpool-queue-count queue) 0)
+		  (threadpool-queue-empty? queue)
 		  (threadpool-start! pool)))
 	    (let ((args (%threadpool-request-args entry))
 		  (root (%threadpool-request-root entry)))
 	      (if (null? args)
 		  ((%threadpool-request-proc entry) root)
 		  (apply (%threadpool-request-proc entry) (cons root args)))
-	      ((%threadpool-success pool) root))))))
+	      (and success (success root)))))))
 
      (define (make-threadpool name max type)
        (let ((pool (%make-threadpool
 		    name max '() (make-threadpool-queue name capacity: 0)
 		    (threadpool-requesttype-fail type) (threadpool-requesttype-success type))))
+	 #;(if (number? max) (do ((i 1 (add1 i))) ((= i max)) (threadpool-start! pool)))
 	 (threadpool-start! pool)))
 
      (define (threadpool-order! pool root proc args)
