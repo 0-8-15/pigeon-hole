@@ -25,7 +25,9 @@
 ;; Basic Tests
 
 (let ((mb (mailbox-make 'm0 capacity: 1)))
+  (assert (mailbox-empty? mb))
   (mailbox-send! mb 1)
+  (assert (not (mailbox-empty? mb)))
   (assert (eq? (mailbox-size mb) 1))
   (assert (eq? (mailbox-send/blocking! mb 1 #f) #f))
   (assert (eq? (mailbox-send/blocking! mb 1 (lambda (x) #f)) #f))
@@ -34,13 +36,17 @@
   (assert (eq? (mailbox-send/blocking! mb 2 #f) #t))
   (assert (eq? (mailbox-size mb) 1))
   (assert (eq? (mailbox-receive! mb) 2))
+  (assert (eq? (mailbox-send! mb 1) #t))
+  (assert (eq? (mailbox-send! mb 2) #t))
+  (assert (eq? (mailbox-send! mb 3) #t))
+  (assert (equal? (do ((i 1 (add1 i)) (r '())) ((> i 3) r) (set! r (cons (mailbox-receive! mb) r))) '(3 2 1)))
   )
  
 (define mb (mailbox-make 'm0 capacity: 10))
 
 (cond-expand
  (blocking (define active-mailbox-send! mailbox-send/blocking!))
- (else (define active-mailbox-send! mailbox-send!)))
+ (else (define active-mailbox-send! mailbox-send/anyway!)))
 
 (cond-expand
  (compiling

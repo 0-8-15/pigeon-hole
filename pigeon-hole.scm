@@ -15,11 +15,11 @@
 
 (module
  pigeon-hole
- (make isa? empty? await-message! send! send/blocking! receive! count size name)
+ (make isa? empty? await-message! send/anyway! send/blocking! send! receive! count size name)
  (import scheme chicken srfi-18)
  (import (only extras format))
 
- (define-record <dequeue> waiting block count queue)
+ (define-record <dequeue> waiting block count qh qt)
 
  (define-type :dequeue: (struct <dequeue>))
 
@@ -32,13 +32,19 @@
    (define-inline (dequeue-block mb) (<dequeue>-block mb))
    (define-inline (dequeue-count mb) (<dequeue>-count mb))
    (define-inline (dequeue-count-set! mb v) (<dequeue>-count-set! mb v))
-   (define-inline (dequeue-queue mb) (<dequeue>-queue mb)))
+   (define-inline (dequeue-qh mb) (<dequeue>-qh mb))
+   (define-inline (dequeue-qh-set! mb v) (<dequeue>-qh-set! mb v))
+   (define-inline (dequeue-qt mb) (<dequeue>-qt mb))
+   (define-inline (dequeue-qt-set! mb v) (<dequeue>-qt-set! mb v)))
   (else
    (define-inline (dequeue-waiting mb) (##sys#slot mb 1))
    (define-inline (dequeue-block mb) (##sys#slot mb 2))
    (define-inline (dequeue-count mb) (##sys#slot mb 3))
    (define-inline (dequeue-count-set! mb v) (##sys#setislot mb 3 v))
-   (define-inline (dequeue-queue mb) (##sys#slot mb 4))
+   (define-inline (dequeue-qh mb) (##sys#slot mb 4))
+   (define-inline (dequeue-qh-set! mb v) (##sys#setslot mb 4 v))
+   (define-inline (dequeue-qt mb) (##sys#slot mb 5))
+   (define-inline (dequeue-qt-set! mb v) (##sys#setslot mb 5 v))
    ))
 
  (define-record-printer (<dequeue> x out)
@@ -49,18 +55,18 @@
  (define make
    (let ((make-dequeue make-<dequeue>))
      (lambda (#!optional (name #f) #!key (capacity 0))
-       (make-dequeue
-	(make-condition-variable name) (make-mutex name)
-	capacity
-	(let ((x (list 0))) (cons x x))))))
+       (let ((x (list 0)))
+	 (make-dequeue
+	  (make-condition-variable name) (make-mutex name)
+	  capacity x x)))))
 
  (: empty? (:dequeue: -> boolean))
- (define (empty? queue) (null? (cdar (dequeue-queue queue))))
+ (define (empty? queue) (null? (cdr (dequeue-qh queue))))
  (: count (:dequeue: -> fixnum))
  (define count dequeue-count)
  (define (name queue) (condition-variable-name (dequeue-waiting queue)))
  (: size (:dequeue: -> fixnum))
- (define-inline (%size queue) (caar (dequeue-queue queue)))
+ (define-inline (%size queue) (car (dequeue-qh queue)))
  (define (size queue) (%size queue))
 
  (define unlocked (make-mutex 'unlocked))
@@ -74,21 +80,18 @@
    (mutex-unlock! unlocked (dequeue-waiting queue))
    (dequeue-count-set! queue (sub1 (dequeue-count queue))))
 
- (: send! (:dequeue: * -> boolean))
- (define (send! queue job)
+ (: send/anyway! (:dequeue: * -> boolean))
+ (define (send/anyway! queue job)
    (let ((job (cons job '()))
-	 (q (dequeue-queue queue)))
-     (set-cdr! (cdr q) job)
-     (set-cdr! q job)
-     (let ((p (##sys#slot q 0)#;(car q)))
+	 (t (dequeue-qt queue)))
+     (set-cdr! t job)
+     (dequeue-qt-set! queue job)
+     (let ((p (dequeue-qh queue)))
        (##sys#setislot p 0 (fx+ (##sys#slot p 0) 1))
        #;(set-car! p (add1 (car p)))
        ))
    (condition-variable-signal! (dequeue-waiting queue))
    #t)
-
-;; `send/blocking!` needs roughly 3x as much runtime as `send!` in
-;; contention case and incures roughly 20% overhead otherwise
 
  (: send/blocking! (:dequeue: * &rest (or boolean (procedure (:dequeue:) boolean)) -> boolean))
  (define (send/blocking! queue job #!optional (block #t))
@@ -96,15 +99,22 @@
    (let loop ()
      (if (fx> (count queue) (%size queue))
 	 (begin
-	   (send! queue job)
+	   (send/anyway! queue job)
 	   (let ((mux (dequeue-block queue)))
-	     (if (thread? (mutex-state mux)) (mutex-unlock! mux)))
+	     ;; The commented-out case is only required to cope with a CHICKEN bug.
+	     (if (eq? (mutex-state mux) 'not-abandoned) #;(or (eq? (mutex-state mux) 'not-abandoned) (eq? (mutex-state mux) 'abandoned))
+		 (mutex-unlock! mux)))
 	   #t)
 	 (cond
-	  ((eq? block #t) (mutex-lock! (dequeue-block queue)) (loop))
+	  ;; Note: Using `mutex-lock!` without #f as thread incures
+	  ;; about 20% overhead.
+	  ((eq? block #t) (mutex-lock! (dequeue-block queue) #f #f) (loop))
 	  ((not block) #f)
 	  ((procedure? block) (block queue))))))
 
+ (: send! (:dequeue: * -> boolean))
+ (define (send! queue job) (send/blocking! queue job))
+ 
  (: receive! (:dequeue: -> *))
  (define (receive! queue)
    (let loop ()
@@ -112,11 +122,10 @@
 	 (begin
 	   (await-message! queue)
 	   (loop))
-	 (let* ((queue (dequeue-queue queue))
-		(p0 (##sys#slot queue 0) #;(car queue))
+	 (let* ((p0 (dequeue-qh queue))
 		(p (##sys#slot p0 1) #;(cdr p0))
 		(len (##sys#slot p0 0) #;(car p0)))
-	   (set-car! queue p)
+	   (dequeue-qh-set! queue p)
 	   (let ((x (##sys#slot p 0) #;(car p)))
 	     (##sys#setislot p 0 (fx- len 1)) #;(set-car! p (fx- len 1))
 	     x)))))
