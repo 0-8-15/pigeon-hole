@@ -54,11 +54,11 @@
    ))
 
  (define make-threadpool-queue dequeue-make)
- (define threadpool-send-message! dequeue-send!)
- (define threadpool-send-message/blocking! dequeue-send/blocking!)
- (define threadpool-receive-message! dequeue-receive!)
- (define threadpool-queue-empty? dequeue-empty?)
- (define threadpool-queue-count dequeue-count)
+ (define-inline (threadpool-send-message! h v) (dequeue-send! h v))
+ (define-inline (threadpool-send-message/blocking! h v) (dequeue-send/blocking! h v))
+ (define-inline (threadpool-receive-message! h) (dequeue-receive! h))
+ (define-inline (threadpool-queue-empty? h) (dequeue-empty? h))
+ (define-inline (threadpool-queue-count h) (dequeue-count h))
 
  (define-values (make threadpool-start! order/anyway! order/blocking!)
    (let ((%make-threadpool make-threadpool))
@@ -117,10 +117,10 @@
 
      (define (threadpool-order! pool root proc args)
        (threadpool-send-message! (threadpool-queue pool) (make-threadpool-request root proc args))
-       pool)
+       #;pool)
      (define (threadpool-order/blocking! pool root proc args)
        (threadpool-send-message/blocking! (threadpool-queue pool) (make-threadpool-request root proc args))
-       pool)
+       #;pool)
      (values make-threadpool threadpool-start! threadpool-order! threadpool-order/blocking!)))
 
  (define order! order/blocking!)
