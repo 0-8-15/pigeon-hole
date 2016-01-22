@@ -3,11 +3,11 @@
 (define opt-flags '(-O3 -lfa2 -d2 -no-trace -no-lambda-info))
 
 (compile -s ,@opt-flags -J -emit-type-file "pigeon-hole.types" "pigeon-hole.scm")
-(compile -c -O3 "pigeon-hole.scm" -unit pigeon-hole)
+(compile -c ,@opt-flags "pigeon-hole.scm" -unit pigeon-hole)
 (compile -s -O2 -d0 "pigeon-hole.import.scm")
 (compile -s -O2 -d0 "pigeonry.import.scm")
 
 (install-extension
  'pigeon-hole
  '("pigeon-hole.types" "pigeon-hole.so" "pigeon-hole.import.so" "pigeonry.import.so")
- '((version "0.2.0")))
+ '((version "0.2.1")))

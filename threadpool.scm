@@ -108,7 +108,7 @@
 
      (define (make-threadpool name max type)
        (let ((pool (%make-threadpool
-		    name max '() (make-threadpool-queue name capacity: max)
+		    name max '() (make-threadpool-queue name capacity: 0)
 		    (threadpool-requesttype-fail type) (threadpool-requesttype-success type))))
 	 (threadpool-start! pool)))
 
