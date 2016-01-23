@@ -15,7 +15,9 @@
 
 (module
  pigeon-hole
- (make isa? empty? await-message! send/anyway! send/blocking! send! receive! count size name)
+ (make isa? empty? await-message! send/anyway! send/blocking! send! receive! count size name
+       ;; low level, unstable API
+       send-list/anyway!! receive-all!)
  (import scheme chicken srfi-18)
  (import (only extras format))
 
@@ -51,11 +53,13 @@
    (format out "<queue ~a (size ~a capacity ~a~a)>" (name x) (size x) (count x)
 	   (if (thread? (mutex-state (dequeue-block x))) " blocking" "")))
 
+ (define-inline (%make-empty-queue) (cons 0 '()))
+
  (: make (&optional * &rest -> :dequeue:))
  (define make
    (let ((make-dequeue make-<dequeue>))
      (lambda (#!optional (name #f) #!key (capacity 0))
-       (let ((x (list 0)))
+       (let ((x (%make-empty-queue)))
 	 (make-dequeue
 	  (make-condition-variable name) (make-mutex name)
 	  capacity x x)))))
@@ -130,6 +134,34 @@
 	     (##sys#setislot p 0 (fx- len 1)) #;(set-car! p (fx- len 1))
 	     x)))))
 
+ 
+ ;; Low level / unstable API
+
+ (: send-list/anyway!! (:dequeue: (list-of *) &rest fixnum pair -> undefined))
+
+ (define (send-list/anyway!! queue msgs #!optional (len #f) (last #f))
+   (if (pair? msgs) ;; NOOP if null?
+       (begin
+	 (if (not len)
+	     (do ((msgs msgs (cdr msgs)) (n 1 (fx+ n 1)))
+		 ((null? (cdr msgs)) (set! len n) (set! last msgs))))
+	 (let ((h (dequeue-qh queue)))
+	   (set-car! h (fx+ (car h) len))
+	   (set-cdr! (dequeue-qt queue) msgs)
+	   (dequeue-qt-set! queue last)
+	   (condition-variable-signal! (dequeue-waiting queue))))))
+ 
+ (: receive-all! (:dequeue: -> (list-of *)))
+
+ (define (receive-all! queue)
+   (if (empty? queue) '()
+       (let ((msgs (cdr (dequeue-qh queue)))
+	     (nq (%make-empty-queue)))
+	 (dequeue-qh-set! queue nq)
+	 (dequeue-qt-set! queue nq)
+	 (mutex-unlock! (dequeue-block queue))
+	 msgs)))
+ 
  )
 
 (include "threadpool.scm")

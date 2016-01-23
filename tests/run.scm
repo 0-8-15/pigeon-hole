@@ -36,12 +36,26 @@
   (assert (eq? (mailbox-send/blocking! mb 2 #f) #t))
   (assert (eq? (mailbox-size mb) 1))
   (assert (eq? (mailbox-receive! mb) 2))
+  (assert (eq? (mailbox-send/anyway! mb 1) #t))
+  (assert (eq? (mailbox-send/anyway! mb 2) #t))
+  (assert (eq? (mailbox-send/anyway! mb 3) #t))
+  (assert (equal? (do ((i 1 (add1 i)) (r '())) ((> i 3) r) (set! r (cons (mailbox-receive! mb) r))) '(3 2 1)))
+  )
+
+;; Unstable low level
+
+(let ((mb (mailbox-make 'm0 capacity: 10)))
   (assert (eq? (mailbox-send! mb 1) #t))
   (assert (eq? (mailbox-send! mb 2) #t))
   (assert (eq? (mailbox-send! mb 3) #t))
-  (assert (equal? (do ((i 1 (add1 i)) (r '())) ((> i 3) r) (set! r (cons (mailbox-receive! mb) r))) '(3 2 1)))
+  (assert (equal? (mailbox-receive-all! mb) '(1 2 3)))
+  (assert (eq? (mailbox-size mb) 0))
+  (assert (eq? (mailbox-send! mb 1) #t))
+  (mailbox-send-list/anyway!! mb '(2 3 4))
+  (assert (eq? (mailbox-size mb) 4))
+  (assert (equal? (mailbox-receive-all! mb) '(1 2 3 4)))
   )
- 
+
 (define mb (mailbox-make 'm0 capacity: 10))
 
 (cond-expand

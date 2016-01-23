@@ -105,7 +105,10 @@
 		  (root (%threadpool-request-root entry)))
 	      (if (null? args)
 		  ((%threadpool-request-proc entry) root)
-		  (apply (%threadpool-request-proc entry) (cons root args)))
+		  (let ((a1 (##sys#slot #;car args 0)) (r (##sys#slot #;cdr args 1)))
+		    (if (null? r)
+			((%threadpool-request-proc entry) root a1)
+			(apply (%threadpool-request-proc entry) (cons root args)))))
 	      (and success (success root)))))))
 
      (define (make-threadpool name max type)
