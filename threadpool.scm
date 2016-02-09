@@ -99,7 +99,7 @@
 	    (let ((queue (%threadpool-queue pool)))
 	      (set! entry (threadpool-receive-message! queue))
 	      (or (> (threadpool-queue-count queue) 0)
-		  (threadpool-queue-empty? queue)
+		  ;;(threadpool-queue-empty? queue)
 		  (threadpool-start! pool)))
 	    (let ((args (%threadpool-request-args entry))
 		  (root (%threadpool-request-root entry)))
