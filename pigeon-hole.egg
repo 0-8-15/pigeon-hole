@@ -1,0 +1,14 @@
+;; -*- mode: Scheme; -*-
+((synopsis "A mailbox constrained by capacity.")
+ (category hell)
+ (license "BSD")
+ (author "Jörg F. Wittenberger")
+ ;; (doc-from-wiki)
+ (dependencies srfi-18)
+ (components
+  (extension
+   pigeon-hole
+   (types-file)
+   (csc-options "-O3" "-lfa2" "-d2" "-no-trace" "-no-lambda-info")
+   (modules pigeon-hole pigeonry)))
+ )

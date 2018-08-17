@@ -1,5 +1,3 @@
-(use srfi-18 extras)
-
 (declare
  (disable-interrupts) ;; a must
 
@@ -18,8 +16,11 @@
  (make isa? empty? await-message! send/anyway! send/blocking! send! receive! count size name
        ;; low level, unstable API
        send-list/anyway!! receive-all!)
- (import scheme chicken srfi-18)
- (import (only extras format))
+ (import scheme srfi-18)
+ (import (only (chicken format) format))
+ (import (chicken base))
+ (import (chicken type))
+ (import (chicken fixnum))
 
  (define-record <dequeue> waiting block count qh qt)
 
@@ -55,7 +56,7 @@
 
  (define-inline (%make-empty-queue) (cons 0 '()))
 
- (: make (&optional * &rest -> :dequeue:))
+ ;; FIXME how to declare this? (: make (&optional * &rest fixnum -> :dequeue:))
  (define make
    (let ((make-dequeue make-<dequeue>))
      (lambda (#!optional (name #f) #!key (capacity 0))

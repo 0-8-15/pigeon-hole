@@ -13,13 +13,16 @@
  (no-procedure-checks-for-usual-bindings)
  )
 
-(use pigeon-hole)
+(import pigeon-hole)
 
 
 (module
  test
  (test-run)
- (import scheme chicken srfi-18 extras)
+ (import scheme srfi-18)
+ (import (chicken base))
+ (import (chicken format))
+ (import (chicken time))
  (import (prefix pigeon-hole mailbox-))
 
 ;; Basic Tests
@@ -66,7 +69,7 @@
  (compiling
   (define turns 1000000))
  (else
-  (define turns 1000)))
+  (define turns 10000)))
 
 (define tw
   (make-thread
@@ -104,16 +107,13 @@
 
   (format #t "~a message~a passed in ~a (~a per ms)\n " turns
 	  (if (eq? active-mailbox-send! mailbox-send!) "" "/blocking")
-	  (- t1 t0) (/ turns (- t1 t0)))
+	  (- t1 t0) (exact->inexact (/ turns (- t1 t0))))
   )
 
  
 ;;----------
 
 )
-
-;; Still the problem with chicken being slow without useless uses.
-(use srfi-1)
 
 (import test)
 (test-run)
@@ -122,7 +122,8 @@
 (module
  test2
  ()
- (import scheme chicken)
+ (import scheme)
+ (import (chicken base))
  
  (import (prefix pigeonry threadpool-))
 
