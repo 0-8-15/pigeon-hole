@@ -18,12 +18,15 @@
   )
  (import (except scheme max))
  (import (except srfi-18 raise) #;srfi-34)
- (import (chicken base))
- (import (chicken condition))
- (import (only (chicken format) format))
- (import (chicken fixnum))
+ (cond-expand
+  (chicken-5
+   (import (chicken base))
+   (import (chicken condition))
+   (import (only (chicken format) format))
+   (import (chicken fixnum)))
+  (else (import chicken (only extras format))))
  (import (prefix pigeon-hole dequeue-))
- 
+
  (define-record threadpool name max threads queue fail success)
 
  (define pigeonry? threadpool?)

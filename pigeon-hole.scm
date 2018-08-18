@@ -16,11 +16,17 @@
  (make isa? empty? await-message! send/anyway! send/blocking! send! receive! count size name
        ;; low level, unstable API
        send-list/anyway!! receive-all!)
- (import scheme srfi-18)
- (import (only (chicken format) format))
- (import (chicken base))
- (import (chicken type))
- (import (chicken fixnum))
+ (import scheme)
+ (cond-expand
+  (chicken-5
+   (import (only (chicken format) format))
+   (import (chicken base))
+   (import (chicken type))
+   (import (chicken fixnum))
+   (import srfi-18))
+  (else
+   (import chicken)
+   (use srfi-18 (only extras format))))
 
  (define-record <dequeue> waiting block count qh qt)
 

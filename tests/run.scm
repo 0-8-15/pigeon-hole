@@ -13,16 +13,20 @@
  (no-procedure-checks-for-usual-bindings)
  )
 
-(import pigeon-hole)
-
 
 (module
  test
  (test-run)
  (import scheme srfi-18)
- (import (chicken base))
- (import (chicken format))
- (import (chicken time))
+ (cond-expand
+  (chicken-5
+   (import (chicken base))
+   (import (chicken format))
+   (import (chicken time)))
+  (else
+   (import chicken extras)
+   (use pigeon-hole)))
+
  (import (prefix pigeon-hole mailbox-))
 
 ;; Basic Tests
@@ -107,7 +111,10 @@
 
   (format #t "~a message~a passed in ~a (~a per ms)\n " turns
 	  (if (eq? active-mailbox-send! mailbox-send!) "" "/blocking")
-	  (- t1 t0) (exact->inexact (/ turns (- t1 t0))))
+	  (- t1 t0) ( (cond-expand
+		       (chicken-5 exact->inexact)
+		       (else (lambda (x) x)))
+		      (/ turns (- t1 t0))))
   )
 
  
@@ -123,7 +130,9 @@
  test2
  ()
  (import scheme)
- (import (chicken base))
+ (cond-expand
+  (chicken-5 (import (chicken base)))
+  (else (import chicken)))
  
  (import (prefix pigeonry threadpool-))
 
