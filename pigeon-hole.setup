@@ -5,9 +5,12 @@
 (compile -s ,@opt-flags -J -emit-type-file "pigeon-hole.types" "pigeon-hole.scm")
 (compile -c ,@opt-flags "pigeon-hole.scm" -unit pigeon-hole)
 (compile -s -O2 -d0 "pigeon-hole.import.scm")
+(compile -s ,@opt-flags -J -emit-type-file "pigeonry.types" "pigeonry.scm")
+(compile -c ,@opt-flags "pigeonry.scm" -unit pigeonry)
 (compile -s -O2 -d0 "pigeonry.import.scm")
 
 (install-extension
  'pigeon-hole
- '("pigeon-hole.types" "pigeon-hole.so" "pigeon-hole.import.so" "pigeonry.import.so")
- '((version "0.2.4")))
+ '("pigeon-hole.types" "pigeon-hole.so" "pigeon-hole.import.so"
+   "pigeonry.types" "pigeonry.so" "pigeonry.import.so")
+ '((version "0.2.5")))

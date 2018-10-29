@@ -110,7 +110,7 @@
   (define t1 (current-milliseconds))
 
   (format #t "~a message~a passed in ~a (~a per ms)\n " turns
-	  (if (eq? active-mailbox-send! mailbox-send!) "" "/blocking")
+	  (if (eq? active-mailbox-send! mailbox-send/blocking!) "/blocking" "")
 	  (- t1 t0) ( (cond-expand
 		       (chicken-5 exact->inexact)
 		       (else (lambda (x) x)))
@@ -131,14 +131,16 @@
  ()
  (import scheme)
  (cond-expand
-  (chicken-5 (import (chicken base)))
-  (else (import chicken)))
- 
- (import (prefix pigeonry threadpool-))
+  (chicken-5
+   (import (chicken base))
+   (import (prefix pigeonry threadpool-)))
+  (else
+   (import chicken)
+   (use (prefix pigeonry threadpool-))))
 
  (import srfi-18)
 
- (define poo-type
+ (define pool-type
    (threadpool-make-type
     (lambda (root ex)
       (mutex-specific-set! root ex)
@@ -147,7 +149,7 @@
       (mutex-unlock! root)
       )))
 
- (define pile (threadpool-make 'pile 1 poo-type))
+ (define pile (threadpool-make 'pile 1 pool-type))
 
  (assert
   (equal?
