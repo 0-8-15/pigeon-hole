@@ -1,6 +1,6 @@
 ;; -*- mode: Scheme; -*-
 ((synopsis "A mailbox constrained by capacity.")
- (version "0.2.5")
+ (version "0.2.6")
  (category hell)
  (license "BSD")
  (author "Jörg F. Wittenberger")

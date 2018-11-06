@@ -88,8 +88,10 @@
    ;; this is only safe if mutex-unlock! does not switch threads
    ;; until waiting on the condition variable.
    (mutex-unlock! (dequeue-block queue))
-   (mutex-unlock! unlocked (dequeue-waiting queue))
-   (dequeue-count-set! queue (sub1 (dequeue-count queue))))
+   (dynamic-wind
+       void
+       (lambda () (mutex-unlock! unlocked (dequeue-waiting queue)))
+       (lambda () (dequeue-count-set! queue (sub1 (dequeue-count queue))))))
 
  (: send/anyway! (:dequeue: * -> boolean))
  (define (send/anyway! queue job)
