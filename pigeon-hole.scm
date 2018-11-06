@@ -13,9 +13,11 @@
 
 (module
  pigeon-hole
- (make isa? empty? await-message! send/anyway! send/blocking! send! receive! count size name
+ (make isa? empty? await-message! send/anyway! send/blocking! send! receive! capacity size name
        ;; low level, unstable API
-       send-list/anyway!! receive-all!)
+       send-list/anyway!! receive-all!
+       ;; inspection only
+       count)
  (import scheme)
  (cond-expand
   (chicken-5
@@ -39,8 +41,8 @@
   (never
    (define-inline (dequeue-waiting mb) (<dequeue>-waiting mb))
    (define-inline (dequeue-block mb) (<dequeue>-block mb))
-   (define-inline (dequeue-count mb) (<dequeue>-count mb))
-   (define-inline (dequeue-count-set! mb v) (<dequeue>-count-set! mb v))
+   (define-inline (dequeue-capacity mb) (<dequeue>-capacity mb))
+   ;;(define-inline (dequeue-capacity-set! mb v) (<dequeue>-capacity-set! mb v))
    (define-inline (dequeue-qh mb) (<dequeue>-qh mb))
    (define-inline (dequeue-qh-set! mb v) (<dequeue>-qh-set! mb v))
    (define-inline (dequeue-qt mb) (<dequeue>-qt mb))
@@ -48,8 +50,8 @@
   (else
    (define-inline (dequeue-waiting mb) (##sys#slot mb 1))
    (define-inline (dequeue-block mb) (##sys#slot mb 2))
-   (define-inline (dequeue-count mb) (##sys#slot mb 3))
-   (define-inline (dequeue-count-set! mb v) (##sys#setislot mb 3 v))
+   (define-inline (dequeue-capacity mb) (##sys#slot mb 3))
+   ;;(define-inline (dequeue-capacity-set! mb v) (##sys#setislot mb 3 v))
    (define-inline (dequeue-qh mb) (##sys#slot mb 4))
    (define-inline (dequeue-qh-set! mb v) (##sys#setslot mb 4 v))
    (define-inline (dequeue-qt mb) (##sys#slot mb 5))
@@ -73,8 +75,17 @@
 
  (: empty? (:dequeue: -> boolean))
  (define (empty? queue) (null? (cdr (dequeue-qh queue))))
+ (define-inline (dequeue-waiting-readers queue)
+   ;; BEWARE: Using internals of srfi-18 here: slot #2 of a
+   ;; condition-variable is the list of waiting threads.
+   (##sys#slot (dequeue-waiting queue) 2))
+ (define-inline (receiver-is-already-waiting? queue)
+   (pair? (dequeue-waiting-readers queue)))
+ (: capacity (:dequeue: -> fixnum))
+ (define capacity dequeue-capacity)
  (: count (:dequeue: -> fixnum))
- (define count dequeue-count)
+ (define (count queue)
+   (length (dequeue-waiting-readers queue)))
  (define (name queue) (condition-variable-name (dequeue-waiting queue)))
  (: size (:dequeue: -> fixnum))
  (define-inline (%size queue) (car (dequeue-qh queue)))
@@ -84,14 +95,10 @@
  
  (: await-message! (:dequeue: -> undefined)) ;; sort-of deprecated
  (define (await-message! queue)
-   (dequeue-count-set! queue (add1 (dequeue-count queue)))
    ;; this is only safe if mutex-unlock! does not switch threads
    ;; until waiting on the condition variable.
    (mutex-unlock! (dequeue-block queue))
-   (dynamic-wind
-       void
-       (lambda () (mutex-unlock! unlocked (dequeue-waiting queue)))
-       (lambda () (dequeue-count-set! queue (sub1 (dequeue-count queue))))))
+   (mutex-unlock! unlocked (dequeue-waiting queue)))
 
  (: send/anyway! (:dequeue: * -> boolean))
  (define (send/anyway! queue job)
@@ -110,7 +117,8 @@
  (define (send/blocking! queue job #!optional (block #t))
    #;(assert (or (boolean? block) (procedure? block)))
    (let loop ()
-     (if (fx> (count queue) (%size queue))
+     (if (or (receiver-is-already-waiting? queue)
+	     (fx> (dequeue-capacity queue) (%size queue)))
 	 (begin
 	   (send/anyway! queue job)
 	   (let ((mux (dequeue-block queue)))
