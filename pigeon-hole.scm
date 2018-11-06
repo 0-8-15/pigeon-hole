@@ -118,10 +118,7 @@
 	     (fx> (dequeue-capacity queue) (%size queue)))
 	 (begin
 	   (send/anyway! queue job)
-	   (let ((mux (dequeue-block queue)))
-	     ;; The commented-out case is only required to cope with a CHICKEN bug.
-	     (if (eq? (mutex-state mux) 'not-abandoned) #;(or (eq? (mutex-state mux) 'not-abandoned) (eq? (mutex-state mux) 'abandoned))
-		 (mutex-unlock! mux)))
+	   (mutex-unlock! (dequeue-block queue))
 	   #t)
 	 (cond
 	  ;; Note: Using `mutex-lock!` without #f as thread incures
