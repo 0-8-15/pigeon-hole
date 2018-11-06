@@ -91,14 +91,11 @@
  (define-inline (%size queue) (car (dequeue-qh queue)))
  (define (size queue) (%size queue))
 
- (define unlocked (make-mutex 'unlocked))
- 
  (: await-message! (:dequeue: -> undefined)) ;; sort-of deprecated
  (define (await-message! queue)
    ;; this is only safe if mutex-unlock! does not switch threads
    ;; until waiting on the condition variable.
-   (mutex-unlock! (dequeue-block queue))
-   (mutex-unlock! unlocked (dequeue-waiting queue)))
+   (mutex-unlock! (dequeue-block queue) (dequeue-waiting queue)))
 
  (: send/anyway! (:dequeue: * -> boolean))
  (define (send/anyway! queue job)
