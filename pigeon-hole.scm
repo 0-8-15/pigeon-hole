@@ -13,7 +13,7 @@
 
 (module
  pigeon-hole
- (make isa? empty? await-message! send/anyway! send/blocking! send! receive! capacity size name
+ (make isa? empty? await-message! send/anyway! send/blocking! send! receive! receive/blocking! capacity size name
        ;; low level, unstable API
        send-list/anyway!! receive-all!
        ;; inspection only
@@ -74,7 +74,8 @@
 	  capacity x x)))))
 
  (: empty? (:dequeue: -> boolean))
- (define (empty? queue) (null? (cdr (dequeue-qh queue))))
+ (define-inline ($empty? queue) (null? (##sys#slot (dequeue-qh queue) 1) #;(cdr (dequeue-qh queue))))
+ (define (empty? queue) ($empty? queue))
  (define-inline (dequeue-waiting-readers queue)
    ;; BEWARE: Using internals of srfi-18 here: slot #2 of a
    ;; condition-variable is the list of waiting threads.
@@ -92,10 +93,9 @@
  (define (size queue) (%size queue))
 
  (: await-message! (:dequeue: -> undefined)) ;; sort-of deprecated
- (define (await-message! queue)
-   ;; this is only safe if mutex-unlock! does not switch threads
-   ;; until waiting on the condition variable.
+ (define-inline ($await-message! queue)
    (mutex-unlock! (dequeue-block queue) (dequeue-waiting queue)))
+ (define (await-message! queue) ($await-message! queue))
 
  (: send/anyway! (:dequeue: * -> boolean))
  (define (send/anyway! queue job)
@@ -133,9 +133,9 @@
  (: receive! (:dequeue: -> *))
  (define (receive! queue)
    (let loop ()
-     (if (empty? queue)
+     (if ($empty? queue)
 	 (begin
-	   (await-message! queue)
+	   ($await-message! queue)
 	   (loop))
 	 (let* ((p0 (dequeue-qh queue))
 		(p (##sys#slot p0 1) #;(cdr p0))
@@ -145,6 +145,19 @@
 	     (##sys#setislot p 0 (fx- len 1)) #;(set-car! p (fx- len 1))
 	     x)))))
 
+ (: receive/blocking! (:dequeue: (procedure (:dequeue: (procedure () *)) *) -> *))
+ (define (receive/blocking! queue block)
+   (let loop ()
+     (if ($empty? queue)
+	 (block queue loop)
+	 (let* ((p0 (dequeue-qh queue))
+		(p (##sys#slot p0 1) #;(cdr p0))
+		(len (##sys#slot p0 0) #;(car p0)))
+	   (dequeue-qh-set! queue p)
+	   (let ((x (##sys#slot p 0) #;(car p)))
+	     (##sys#setislot p 0 (fx- len 1)) #;(set-car! p (fx- len 1))
+	     x)))))
+ 
  
  ;; Low level / unstable API
 
