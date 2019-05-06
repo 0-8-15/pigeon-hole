@@ -30,9 +30,9 @@
 
  (define-record <dequeue> waiting block count qh qt)
 
- (define-type :dequeue: (struct <dequeue>))
+ (define-type |:dequeue:| (struct <dequeue>))
 
- (: isa? (* -> boolean : :dequeue:))
+ (: isa? (* -> boolean : |:dequeue:|))
  (define isa? <dequeue>?)
 
  (cond-expand
@@ -62,7 +62,7 @@
 
  (define-inline (%make-empty-queue) (cons 0 '()))
 
- ;; FIXME how to declare this? (: make (&optional * &rest fixnum -> :dequeue:))
+ ;; FIXME how to declare this? (: make (&optional * &rest fixnum -> |:dequeue:|))
  (define make
    (let ((make-dequeue make-<dequeue>))
      (lambda (#!optional (name #f) #!key (capacity 0))
@@ -71,18 +71,18 @@
 	  (make-condition-variable name) (make-mutex name)
 	  capacity x x)))))
 
- (: empty? (:dequeue: -> boolean))
+ (: empty? (|:dequeue:| -> boolean))
  (define (empty? queue) (null? (cdr (dequeue-qh queue))))
- (: count (:dequeue: -> fixnum))
+ (: count (|:dequeue:| -> fixnum))
  (define count dequeue-count)
  (define (name queue) (condition-variable-name (dequeue-waiting queue)))
- (: size (:dequeue: -> fixnum))
+ (: size (|:dequeue:| -> fixnum))
  (define-inline (%size queue) (car (dequeue-qh queue)))
  (define (size queue) (%size queue))
 
  (define unlocked (make-mutex 'unlocked))
  
- (: await-message! (:dequeue: -> undefined)) ;; sort-of deprecated
+ (: await-message! (|:dequeue:| -> undefined)) ;; sort-of deprecated
  (define (await-message! queue)
    (dequeue-count-set! queue (add1 (dequeue-count queue)))
    ;; this is only safe if mutex-unlock! does not switch threads
@@ -93,7 +93,7 @@
        (lambda () (mutex-unlock! unlocked (dequeue-waiting queue)))
        (lambda () (dequeue-count-set! queue (sub1 (dequeue-count queue))))))
 
- (: send/anyway! (:dequeue: * -> boolean))
+ (: send/anyway! (|:dequeue:| * -> boolean))
  (define (send/anyway! queue job)
    (let ((job (cons job '()))
 	 (t (dequeue-qt queue)))
@@ -106,7 +106,7 @@
    (condition-variable-signal! (dequeue-waiting queue))
    #t)
 
- (: send/blocking! (:dequeue: * &rest (or boolean (procedure (:dequeue:) boolean)) -> boolean))
+ (: send/blocking! (|:dequeue:| * &rest (or boolean (procedure (|:dequeue:|) boolean)) -> boolean))
  (define (send/blocking! queue job #!optional (block #t))
    #;(assert (or (boolean? block) (procedure? block)))
    (let loop ()
@@ -125,10 +125,10 @@
 	  ((not block) #f)
 	  ((procedure? block) (block queue))))))
 
- (: send! (:dequeue: * -> boolean))
+ (: send! (|:dequeue:| * -> boolean))
  (define (send! queue job) (send/blocking! queue job))
  
- (: receive! (:dequeue: -> *))
+ (: receive! (|:dequeue:| -> *))
  (define (receive! queue)
    (let loop ()
      (if (empty? queue)
@@ -146,7 +146,7 @@
  
  ;; Low level / unstable API
 
- (: send-list/anyway!! (:dequeue: (list-of *) &rest fixnum pair -> undefined))
+ (: send-list/anyway!! (|:dequeue:| (list-of *) &rest fixnum pair -> undefined))
 
  (define (send-list/anyway!! queue msgs #!optional (len #f) (last #f))
    (if (pair? msgs) ;; NOOP if null?
@@ -160,7 +160,7 @@
 	   (dequeue-qt-set! queue last)
 	   (condition-variable-signal! (dequeue-waiting queue))))))
  
- (: receive-all! (:dequeue: -> (list-of *)))
+ (: receive-all! (|:dequeue:| -> (list-of *)))
 
  (define (receive-all! queue)
    (if (empty? queue) '()
