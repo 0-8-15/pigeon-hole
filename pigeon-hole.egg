@@ -10,7 +10,8 @@
   (extension
    pigeonry
    (types-file)
-   (csc-options -O3 -lfa2 -d2 -no-trace -no-lambda-info))
+   (csc-options -O3 -lfa2 -d2 -no-trace -no-lambda-info)
+   (component-dependencies pigeon-hole))
   (extension
    pigeon-hole
    (types-file)
