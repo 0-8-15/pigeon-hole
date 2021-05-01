@@ -1,0 +1,132 @@
+== pigeon-hole
+
+A mailbox constrained by capacity.
+
+* API similar to mailbox.
+
+* No timeouts we love our pigeons too much.
+
+* Flow control.  {{send/blocking!}} blocks if capacity is exceeded.
+
+A second module [[pigeonry]] - currently unstable in API and
+undocumented - provides a threadpool.  This is only slightly faster
+than creating a fresh thread, catching exceptions and run job it does
+while still obeying the capacity limit.
+This module {{NYD}} (not yet documented) at all.
+
+== API
+
+<procedure>(isa? *) -> boolean</procedure>
+
+Test predicate for {{PIGEON-HOLE}}.
+
+<procedure>(: make (&optional NAME #!key (capacity: 0) -> {{PIGEON-HOLE}}))</procedure>
+
+Return a {{PIGEON-HOLE}} contrained by capacity.
+
+<procedure>(size PIGEON-HOLE) -> fixnum</procedure>
+
+Return number of pigeons in {{PIGEON-HOLE}}.
+
+<procedure>(empty? PIGEON-HOLE) -> boolean</procedure>
+
+Test {{PIGEON-HOLE}} to be empty.
+
+<procedure>(count PIGEON-HOLE) -> fixnum</procedure>
+
+Return number of waiters on {{PIGEON-HOLE}}.
+
+<procedure>(send! PIGEON-HOLE VALUE) -> boolean</procedure>
+
+Immediately send {{VALUE}} to {{PIGEON-HOLE}}.  Does *not* respect
+capacity limits!
+
+<procedure>(send/blocking! PIGEON-HOLE VALUE [BLOCK]) -> boolean</procedure>
+
+Send {{VALUE}} to {{PIGEON-HOLE}}, blocks if capacity is reached.
+
+{{BLOCK}} is either a boolean or a procedure taking the queue as
+argument and returning a boolean.  If it is a procedure it is call in
+tail position when the call would block.  If {{#f}} does not block but
+return #f.  Default if {{#t}}: block for capacity.
+
+Return: {{#t}} if value was send.
+
+<procedure>(receive! PIGEON-HOLE) -> *</procedure>
+
+Receive value from {{PIGEON-HOLE}}, block if none available.
+
+=== Unstable API
+
+<procedure>(send-list/anyway!! PIGEON-HOLE LIST [NUM LAST]) -> undefined</procedure>
+
+Append all values from {{LIST}} to {{PIGEON-HOLE}}.
+
+It is an error to access {{LIST}} after this call.  Optional {{NUM}}
+and {{LAST}} may be given for optimization.  Must be the length of the
+{{LIST}} and the last pair of it.  All bets are off otherwise.
+
+<procedure>(receive-all! PIGEON-HOLE) -> LIST</procedure>
+
+Receive list of all currently available values from {{PIGEON-HOLE}}.
+
+== Examples
+
+    (module
+     test
+     (test-run)
+     (import scheme chicken srfi-18 extras)
+     (import (prefix pigeon-hole mailbox-))
+    (define mb (mailbox-make 'm0 capacity: 10))
+    ;;
+    ;;(define active-mailbox-send! mailbox-send!)
+    (define active-mailbox-send! mailbox-send/blocking!)
+    ;;
+    (cond-expand
+     (compiling
+      (define turns 1000000))
+     (else
+      (define turns 1000)))
+    ;;
+    (define tw
+      (make-thread
+       (lambda ()
+	 (do ((i 0 (add1 i)))
+	     ((= i turns))
+	   (active-mailbox-send! mb i)))
+       'w))
+    ;;
+    (define tr
+      (make-thread
+       (lambda ()
+	 (do ((i 0 (add1 i)))
+	     ((= i turns))
+	   (mailbox-receive! mb)
+	   ))
+       'r))
+    ;;
+    (define (test-run)
+      (thread-start! tr)
+      (define t0 (current-milliseconds))
+      (thread-start! tw)
+      (thread-join! tr)
+      (define t1 (current-milliseconds))
+      (format #t "~a message passings in ~a (~a per ms)\n "
+              turns (- t1 t0) (/ turns (- t1 t0)))
+      )
+    ) (import test) (test-run)
+
+
+== About this egg
+
+=== Source code
+
+Maintained at github [[https://github.com/0-8-15/pigeon-hole|pigeon-hole]].
+
+=== Author
+
+Jörg F. Wittenberger
+
+=== License
+
+BSD
