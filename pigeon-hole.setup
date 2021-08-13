@@ -13,4 +13,4 @@
  'pigeon-hole
  '("pigeon-hole.types" "pigeon-hole.so" "pigeon-hole.import.so"
    "pigeonry.types" "pigeonry.so" "pigeonry.import.so")
- '((version "0.2.7")))
+ '((version "0.2.8")))
